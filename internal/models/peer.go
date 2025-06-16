@@ -5,3 +5,8 @@ type Peer struct {
 	IP   string `json:"ip"`
 	Port int    `json:"port"`
 }
+
+type PeerInfo struct {
+	IP   string `json:"ip"`
+	Port int    `json:"port"`
+}

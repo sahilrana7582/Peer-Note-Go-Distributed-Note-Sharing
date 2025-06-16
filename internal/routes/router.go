@@ -12,6 +12,7 @@ func SetupRouter() *chi.Mux {
 
 	r.Route("/api", func(api chi.Router) {
 		api.Post("/files", handlers.UploadFileMetadata)
+		api.Get("/peers", handlers.GetPeersByFileName)
 		api.Post("/register", handlers.RegisterPeer)
 		api.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Central server is healthy."))

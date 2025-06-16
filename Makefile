@@ -4,7 +4,10 @@ export
 dirpath=./internal/db/migrations
 
 run:
-	go run ./cmd/main.go
+	go run ./cmd/server/main.go
+
+tcp:
+	go run ./cmd/peer/main.go
 
 migrate-up:
 	migrate -path $(dirpath) -database "$(DB_URL)" up
