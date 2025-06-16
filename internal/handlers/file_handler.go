@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -25,10 +26,31 @@ func UploadFileMetadata(w http.ResponseWriter, r *http.Request) {
 	}
 
 	professorName := strings.ReplaceAll(file.Professor, " ", "_")
-	file.FilePath = fmt.Sprintf("./storage/peer_files/%s/%s/%s", file.CourseCode, professorName, file.FileName)
+	dirPath := fmt.Sprintf("./storage/peer_files/%s/%s", file.CourseCode, professorName)
+	filePath := filepath.Join(dirPath, file.FileName)
+
+	if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
+		http.Error(w, "Failed to create directory", http.StatusInternalServerError)
+		return
+	}
+
+	newFile, err := os.Create(filePath)
+	if err != nil {
+		http.Error(w, "Failed to create file", http.StatusInternalServerError)
+		return
+	}
+	defer newFile.Close()
+
+	_, err = newFile.WriteString("This is a placeholder note.\n")
+	if err != nil {
+		http.Error(w, "Failed to write to file", http.StatusInternalServerError)
+		return
+	}
+
+	file.FilePath = filePath
 
 	query := `INSERT INTO files (file_name, course_code, professor, file_path, peer_id, keywords) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`
-	err := db.DB.QueryRow(query, file.FileName, file.CourseCode, file.Professor, file.FilePath, file.PeerID, pq.Array(file.Keywords)).Scan(&file.ID)
+	err = db.DB.QueryRow(query, file.FileName, file.CourseCode, file.Professor, file.FilePath, file.PeerID, pq.Array(file.Keywords)).Scan(&file.ID)
 	if err != nil {
 		fmt.Println(err)
 		http.Error(w, "Failed to save file metadata", http.StatusInternalServerError)
