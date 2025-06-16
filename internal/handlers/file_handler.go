@@ -3,9 +3,12 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -57,23 +60,29 @@ func GetPeersByFileName(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	var peers []models.PeerInfo
+	var allPeers []models.PeerInfo
 	for rows.Next() {
-		var filepath string
 		var p models.PeerInfo
-		if err := rows.Scan(&p.IP, &p.Port, &filepath); err != nil {
-			continue
+		if err := rows.Scan(&p.IP, &p.Port, &p.FilePath); err == nil {
+			allPeers = append(allPeers, p)
 		}
-		go dialPeer("localhost", p.Port, filepath)
-		peers = append(peers, p)
 	}
 
+	if len(allPeers) == 0 {
+		http.Error(w, "No peers found with that file", http.StatusNotFound)
+		return
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	peer := allPeers[rand.Intn(len(allPeers))]
+
+	go dialPeer(peer.IP, peer.Port, peer.FilePath, fileName)
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(peers)
+	json.NewEncoder(w).Encode(peer)
 }
 
-func dialPeer(ip string, port int, filepath string) {
-
+func dialPeer(ip string, port int, filepath, filename string) {
 	address := fmt.Sprintf("%s:%d", ip, port)
 	conn, err := net.Dial("tcp", address)
 	if err != nil {
@@ -84,16 +93,23 @@ func dialPeer(ip string, port int, filepath string) {
 
 	log.Printf("✅ Connected to peer at %s", address)
 
-	i := 0
-	for {
-		if i == 5 {
-			break
-		}
-		conn.Write([]byte(filepath + "\n"))
+	fmt.Fprintf(conn, "%s\n", filepath)
 
-		time.Sleep(3 * time.Second)
+	os.MkdirAll("./downloads", os.ModePerm)
+	localPath := "./downloads/" + filename
 
-		i += 1
+	outFile, err := os.Create(localPath)
+	if err != nil {
+		log.Printf("❌ Could not create local file: %v", err)
+		return
+	}
+	defer outFile.Close()
+
+	_, err = io.Copy(outFile, conn)
+	if err != nil {
+		log.Printf("❌ Could not save file: %v", err)
+		return
 	}
 
+	log.Printf("✅ File saved as %s", localPath)
 }

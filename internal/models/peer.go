@@ -7,6 +7,7 @@ type Peer struct {
 }
 
 type PeerInfo struct {
-	IP   string `json:"ip"`
-	Port int    `json:"port"`
+	IP       string `json:"ip"`
+	Port     int    `json:"port"`
+	FilePath string `json:"file_path"`
 }
